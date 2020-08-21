@@ -139,3 +139,106 @@ endclass
 frame f1 = new(...);    // sets framecount 1 and tag 1 for f1
 
 frame f2 = new(...):    // sets framecount 2 and tag 2 for f2,  f1's values are frmcount 2 and tag 1
+
+// Lesson 3 - Aggregate Classes
+// classes with properties that are class instances
+
+// in other workds, a class property can be an instance of another class. this creates an aggregate or composite class
+
+class frame;
+    bit [4:0] addr;
+    bit [7:0] payload;
+
+    function new(input int add, dat);
+        addr = add;
+        payload = dat;
+    endfunction
+    
+    // the following function is used to describe encapsulation. this function prints the values of addr and payload for that class
+function void print();
+    $display("addr = %0h", addr);
+    $display("payload = %0h", payload);
+endfunction
+
+endclass
+
+class twoframe;  // a class that creates two instances of class frame with handles f1 and f2
+    int count;
+    frame f1;
+    frame f2;
+
+    function new(input int addr, d1, d2); // a method within the class that instantiates the two classes with arguments from the input
+        f1 = new(addr, d1);
+        f2 = new(addr+1, d2);
+
+    // the following function is used to describe encapsulation, see above function defined in class "frame"
+    function void print();
+                                        // Encapsulation - each class ir responsible for handling its own properties
+
+        $display("count = %0d", count); // displays the current count value for class "twoframe"
+        f1.print();                     // then calls print() function that prints both values of the instances from class f1 and f2 that exist within "twoframe"
+        f2.print();                     // this function is defined in the class "frame" and prints values addr, and payload
+    endfunction : print                 // this is similar to module instantiation
+endclass
+
+
+twoframe double = new(2,3,4);  // instance of the class twoframe with handle "double" that instantiates the two subclasses f1 and f2
+initial begin
+    double.f2.addr = 4; // you can then use a class hierarchy of class.subclass.argument/method
+                        // here we set the addr property of the f2 instance
+    $display("base %h", double.f1.addr);
+
+    // these instances are individually created in memory and are referenced when seen from the scope of the higher class
+
+end
+
+// Lesson 4 - Inheritance
+// a class declaration can extend another
+
+class frame;                    // now the parent class
+    logic [4:0] addr;
+    logic [7:0] payload;
+    bit parity;
+
+function new(input int add, dat);  // this function will serve as an example for badtagframe and goodtagframe
+addr = add;
+payload = dat;
+endfunction
+
+endclass
+
+class tagframe extends frame;   // a subclass of frame inherits all the members of the parent
+                                // can add more members and can re-declare (over-ride) parent members
+    // the parent constructor is automatically called by the subclass constructor as the first line in the subclass
+    static int frmcount;
+    int tag;
+    ...
+endclass
+
+// the following class serves as an example of when the comand super must be used to call arguments from the parents class in the subclass
+// super allows a subclass to access parent members
+class badtagframe extends frame;
+    static int frmcount; // 
+    int tag;
+
+    function new();
+    // we need a call to "frame" constructor here. this is because the values required for this function to overwrite the pervious new() function
+    // must be referenced. t
+//      super.new(); // is automatically added, but doesn't call the previous function to pass the values
+        frmcount++;
+        tag = frmcount;
+    endfunction
+endclass
+
+// the following class shows the correct way to extend a class that involves overwriting the previous class's function 
+class goodtagframe extends frame;
+    function new(input int add, dat);
+    super.new(add,dat);
+    frmcount++;
+    tag = frmcount;
+    endfunction
+
+// Multilayer inheritance
+// can keep defining subclasses to parents as long as the chain of calls is unbroken if you are overwriting class functions
+// can only pass arguments one level at a time
+// super.super.new() is not allowed
