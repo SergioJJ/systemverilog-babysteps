@@ -242,3 +242,108 @@ class goodtagframe extends frame;
 // can keep defining subclasses to parents as long as the chain of calls is unbroken if you are overwriting class functions
 // can only pass arguments one level at a time
 // super.super.new() is not allowed
+
+// Lesson 5 - Polymorphism
+// a sublcass creates a new type. you need to easily change between subclass types wihtout having to rewrite testbench
+// any subclass instance can be stored in a parent handle
+
+// introcudces the concept of a handle type
+// can create an handle of the parent class, this can contain an instance of the parent class or any subclass of it
+
+class baseframe;
+...
+    function void iam();
+        $display ("Base Frame");
+    endfunction : iam
+...
+
+class shortframe extends baseframe;
+...
+    bit s1;
+
+    function void iam();
+        $display ("Short Frame");
+    endfunction : iam
+endlcass : shortframe
+
+baseframe bf;           // parent class handle
+shortframe sf = new();  // subclass instance
+
+initial begin
+    bf = sf;            // can copy a subclass instance into a parentclass handle
+                        // if you call or access any methods or properties of the handle, these are resolved according to handle type
+    bf.iam();           // returns string "Baser Frame" as it resolves the call as the bf class type
+    
+    bf.s1 = 1'b1;       // calling s1 property as bf returns an error, even if this property was written in from the subclass before
+                        // this is because if even if there is a subclass instance in bf, you can't access the subclass properties from the baseframe handle
+end                     // so what do you do to access this info as you wrote it into the parent handle?
+
+// this example shows how to resolve the situation above so that you can access all properties of the subclass and handle, uses the same class definitions as before
+
+baseframe bf;
+shortframe sf1 = new();
+shortframe sf2;
+
+initial begin
+    bf = sf1;           // copes sublcass to parent handl;e
+    bf.iam();           // returns "Base Frame"
+//  sf2 = bf;           // you can essentailly copy the baseframe handle back to a shortframe handle to recover the shorframe instance
+                        // but, sf2 = bf; is the incorrect syntax as it makes assumptions the subclass handle points to the parent handle
+    $cast(sf2, bf);     // this action copies the sf1 contents and pointers and checks to make sure that these are compatible 
+    sf2.iam();          // returns "Short Frame", lets you know that the shortframe instance has been recovered
+end 
+
+// now an example using this, I assume that this function iw within a class?
+
+function baseframe get_item();
+    baseframe base;     // parent class handle
+    shortframe short;   // subclass handle
+    randcase            // randomly chooses one of the following statements
+        1: base = new();// creates a parent class instance or
+        1: begin        // creates a subclass instance and copies it into parent handle
+            short = new();
+            base = short;
+        end
+    endcase             // end of randcase
+    return (base);
+endfunction
+
+baseframe bf;           // parent class handle
+shortframe sf;          // subclass handle
+initial begin
+    bf = get_item();    // randomly creates parentclass or creates subclass then copies into parent handle
+                        // and the following will decipher which of the two instances actually occured 
+    if ($cast(sf, bf))
+        $display("shortframe"); // this means the bf handle contains a shortframe instance
+    else
+        $display("baseframe");  // doesn't contain a shortframe subclass instance
+end
+
+// $cast (destination, source)
+// $cast is actually a subroutine, aka an assignment and a typecheck
+// defined as both a function and a task
+// on first example we used the task for since it performed the copy into a new subclass handle
+// on the last example we used the function form as it helped to perform the typecheck
+
+// If the source does not contain a matching instance for the destination:
+// task gives a run-time error
+// function returns 0, used for logical statement
+
+// another polymorphism example
+baseframe frame[7:0];               // array of frame 8 handles
+shortframe sf;
+mediumframe mf;
+
+initial begin
+    foreach (frame [i])
+        randcase                    // randomly generates either a shortframe or mediumframe instance and copies that into the next element of the frame array
+            2 : begin               // essentially loading up the baseframe array with different subclass instances
+                sf = new(.pa());    // dynamically selects which subclass instance to load into array
+                frame[i] = sf;      //
+            end                     // Advantages - the type of frame is decided at the start of stimulus
+            1 : begin               // all subsequent refrences can be to the base array variable
+                mf = new(.pa(1));   // more subclasses can be easily added to design
+                frame[i] = mf;
+            end
+        endcase
+end
