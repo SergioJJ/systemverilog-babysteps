@@ -347,3 +347,116 @@ initial begin
             end
         endcase
 end
+
+// Lesson 6 - Virtual Classes and Methods
+
+class base;
+    function void iam();
+        $display ("Base")
+    endfunction : iam
+endclass : base
+
+class parent extends base;
+    function void iam();
+        $display ("Parent");
+    endfunction
+endclass : parent
+
+class shild extends parent;
+    function void iam();
+        $display ("Child");
+    endfunction : iam
+endclass child
+
+base    b1;
+parent  p1 = new();
+child   c1 = new();
+
+initial begin
+    b1 = p1;    // can take parent instance p1 and copy it into base handle b1
+    b1.iam()    // "Base" treated under base handle type
+
+    p1 = c1;    // 
+    p1.iam();   // "Parent" treated under parent handle type, but you still can't access any subclass instance values from parent class handle
+    // can use cast to access these subclass instances from the parent class, but there is an easier way using virtual methods
+
+end
+
+// example of virtual method implementation
+
+class base;
+    virtual function void iam();    // use keyword "virtual" before function definition to make it a virtual method
+        $display ("Base")
+    endfunction : iam
+endclass : base
+
+class parent extends base;
+    virtual function void iam();    // vitual is option to write out here since it's declared in the parentclass for this function 
+        $display ("Parent");
+    endfunction
+endclass : parent
+
+class shild extends parent;
+    virtual function void iam();    // vitual is option to write out here since it's declared in the parentclass for this function 
+        $display ("Child");
+    endfunction : iam
+endclass child
+
+base    b1;
+parent  p1 = new();
+child   c1 = new();
+
+initial begin
+    b1 = p1;
+    b1.iam();    // if you now call a base handle method, it finds that the method is virtual and points to the parent class instance within the base handle
+
+    // works for the child class as  well
+    p1 = c1;
+    p1.iam();   // "Child"
+    // now you can access the members of a subclass instance when it's held in a parent class handle
+end
+
+// So when a method is accessed of a class handle, which method is used?
+// 1. examine the class declaration of the handle type - look for a virtual method
+// 2. If method is not virtual, then the call is directed to the handle class
+// 3. If method is virtual, then examine contents of handle - 
+//      - if handle contains a subclass isntance, the call is directed to the subclass
+//      - if handle doesn't contain a subclass instance, the call is directed back to the handle class
+
+// virtual class
+
+virtual class base; // a virtual class exists only to be inherited, it cannot be instantiated. aka an abstract class
+...
+    pure virtual function void iam();   // a pure virtual method can only be contained in a virtual class
+                                        // this method is a prototype only, no implementation. single line, no action
+                                        // if you extend from a virtual class that contains a pure virtual method, then you MUST 
+                                        // provide an implementation for your virtual method in your virtual class
+
+endclass : base
+
+class parent extends base;
+...
+    virtual function void iam();        // here is that forced implementation of the iam() function in the subclass to base
+        $display ("Parent");
+    endfunction
+
+endclass : parent
+
+
+class child extends parent;
+...
+    virtual function void iam();        // here is that forced implementation of the iam() function in the subclass to base
+        $display ("Child");
+    endfunction
+
+endclass : child
+
+                                        // doing this means you can call the iam() method from any subclass in base
+
+base    b1 = new(); // instance is illegal, will return an error as virutal class base cannot contain an instance
+parent  p1 - new();
+
+initial begin
+    b1 = p1;
+    b1.iam();       // "Parent", thus you can call iam() method from base and it will show the instance that exists within this base handle
+end
