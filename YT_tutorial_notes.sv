@@ -460,3 +460,95 @@ initial begin
     b1 = p1;
     b1.iam();       // "Parent", thus you can call iam() method from base and it will show the instance that exists within this base handle
 end
+
+
+
+// Lesson 7 - Randomization of class properties
+
+// rand     - random with uniform distribution
+// randc    - random-cyclic randomly iterates through all values without repitition, goes through iterations where all values are used once
+
+
+class randclass;
+    rand    bit [1:0] p1;
+    randc   bit [1:0] p2;
+
+    function void post_randomize();             // example of the post_randomization class declaration that user can define
+        parity = p1 ^ p2;
+    endfunction
+endclass
+
+randclass myrand = new();
+int ok;
+
+initial begin                                   // randomize the properties of a class isntanceby calling the randomize() function
+    ok = myrand.randomize();                    // every class has a built-in randomize virtual method
+    if (!myrand.randomize() )                   // you cannot redeclare this method
+        $display ("myrand randomize failure")   // returns 1 on success, 0 otherwise
+end
+
+// randomize() automatically calls two "hook" functions:
+// pre_randomize() before randomization
+// post_randomize() after randomization
+// if defined, these methods are automatically executed as part of the randomize() function. should never be called individually
+
+
+// Randomization in aggregate classes
+
+class randclass;
+    rand    bit[1:0] p1;
+    randc   bit[1:0] p2;
+endclass
+
+class randwrap;
+    rand int prw;       // randomizes local property prw
+
+    rand randclass c1;  // will push into c1 instance of randclass and randomize the p1 and p2 properties in it, but only if we use the rand keyword
+                        // if rand is not added to this handle declaration it will be skipped in the randomization
+    function new();
+        c1 = new();
+    endfunction
+endclass
+randwrap mywrap = new();// creates the mywrap instance, also creating the c1 instance of the randclass within it
+int ok;
+
+initial begin
+    ok = mywrap.randomize();    // randomizes both c1 and prw within the randwrap class
+end
+
+// controlling randomization: rand_mode()
+// enabled by default (1)
+// if disabled (0), the property will not be randomized
+
+
+// if called off a random property, the task changes the mode of that property
+// if called of an instance, the task changes the mode for all ranodm properties of instance
+task rand_mode(bit on_off);
+
+// mode can be read with function rand_mode
+function int rand_mode();
+// only rnadom properties have rand_mode, calling method off a nonrandom property is a compile error
+
+// rand_mode() example
+
+class randclass;                // class with two randomization properties and two regular properties
+    rand    bit[1:0] p1;
+    randc   bit[1:0] p2;
+            bit[1:0] s1, s2;
+endclass
+
+randclass myrand = new();       // instance of the above class
+
+int ok, state;                  
+
+initial begin
+   myrand.rand_mode(0);         // disables all randomization properties 
+   myrand.p2.rand_mode(1);      // enables p2 randc property 
+
+   state    = myrand.p2.rand_mode();    // returns 1 since p2 randomization property is currently enabled
+
+   ok       = myrand.randomize();       // only p2 is randomized here
+
+   state    = myrand.s1.rand_mode();    // we get an error as s1 is not a random variable
+end
+
