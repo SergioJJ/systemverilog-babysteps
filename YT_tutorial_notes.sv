@@ -552,3 +552,142 @@ initial begin
    state    = myrand.s1.rand_mode();    // we get an error as s1 is not a random variable
 end
 
+// Lesson 8 - Constraints
+// declarative constraints for class randomization
+
+class randclass;
+    rand bit    [1:0] p1;
+    randc bit   [1:0] p2;
+
+    constraint c1 { p1 != 2'b00; }
+endclass
+
+randclass myrand = new;
+
+int ok;
+
+initial begin
+    ok = myrand.randomize();
+    ...
+end
+
+// constraints can be inherited 
+
+class randclass;
+    rand bit    [1:0] p1;
+    randc bit   [1:0] p2;
+
+    constraint not0 { p1 != 2'b00; }    // contrains p1 in base class
+endclass
+
+class rcx1 extends randclass;
+    constraint not3 { p1 != 2'b11; }    // adds constraint not3 to not0 from base class
+endclass
+
+class rcx2 extends randlcass;
+    constraint not0 { p1 != 2'b01; }    // rcx2 overrides not0 from the base class
+endclass
+
+class rcx3 extends randclass;
+    constraint not0 {}                  // removes the constraint of not0
+    constraint not1 { p1 != 2'b01; }    // defines new constraint with a relevant name like not1
+endclass
+
+... 
+rcx1 myrand = new();
+initial begin 
+    ok = myrand.randomize();            // p1 is either 01 or 10
+
+// Constraint Expressions: set membership
+// inside operator is useful in constraint expressions
+
+class randclass;
+    rand bit [7:0] p3;
+    constraint c1 { p3 inside {3, 7, [11:20]}; }    // c1 constrains p3 to the set 3, 7, 11 - 20
+
+    // can also use the ! operator to invert the expression
+    constraint c2 { !( p3 inside {1,7, [10:255 ] } ); }     // identifies a list of values the rand cannot take
+endclass
+
+randclass myrand = new;
+
+int ok;
+
+initial begin 
+    ok  = myrand.randomize();
+    ...
+end
+
+// Constraint Expressions: weighted distributions
+// you can change distribution by defining weights for values using dist
+// default weight is 1
+
+class randclass;
+    rand bit [7:0] p3;
+    constraint c2 { p3 dist { [0:127] : = 2, [128:255]: = 1 }; }
+                //  this makes values in range 0 to 127 twice as liekly as 128 - 255
+endclass
+// two ways to assign weight. this is the second way
+// : = assigns weight to the item or every value in a range
+// : / assigns weight to the item or to a range as a whole
+
+class randclass;
+    rand int p4;
+    // 7 has weight of 7, 11 - 20 each have a weight of 3, and 26-30 each share a weight of 5, so each has 1/5 weight
+    constraint c3 { p4 dist { 7:=5, [11:20]:=3, [26:30]:/1}; }
+
+// Constraint expressions: Conditional Constraints
+// there are two ways of defining conditional constraints:
+// both of these examples define that if the variable mode is set to either 1 or 0, then 
+// p3 will be less than 100 or p3 will be greater than 10000, respectively
+// implication using -> operator
+
+class randclass1;
+    rand int p3l
+    bit mode;
+    constraint c1
+    {
+        mode == 1 -> p3 < 100;
+        mode == 0 -> p3 > 10000;
+    }
+endclass
+
+// if-else, using if .. else construct
+
+class randclass2;
+    rand int p4;
+    bit mode;
+    constraint c2
+    {
+        if (mode == 1)
+            p4 < 100;
+        else // else is optional
+            p4 > 10000;
+    }
+endclass
+
+// Controlling Constaints: constraint_mode()
+// enabled by default (1)
+// if disabled (0), the constraint block will not be used
+// mode can be written with task constraint_mode
+task constaint_mode(bit on_off);
+
+// Application of constraint_mode()
+class randclass;
+    rand bit [1:0] p1;
+    constraint blue     { p1 != 2'b00; }    // blue constrains p1 to not 00
+    constraint green    { p1 != 2'b11; }    // green constrains p1 to not 11
+endclass
+
+randclass myrand = new;
+
+int state, ok;
+
+initial begin
+   myrand.constraint_mode(0);               // disables all constraints to myrand
+   myrand.blue.constraint_mode(1);          // re-enables blue constraint
+
+   state = myrand.green.constraint_mode();  // can test the value of constraint mode switch
+
+   ok = myrand.randomize();                 // randomizes without green constraint, p1 will be 01, 10, or 11
+end
